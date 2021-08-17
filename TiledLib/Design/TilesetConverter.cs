@@ -13,11 +13,8 @@ namespace TiledLib
         {
             var jo = JObject.Load(reader);
 
-            ITileset result;
-            if (jo["source"] == null)
-                result = new Tileset();
-            else
-                result = new ExternalTileset();
+            var result = new Tileset();
+            result.Source = jo["source"].ToString();
 
             serializer.Populate(jo.CreateReader(), result);
             return result;

@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
+using TiledLib.Content.ObjectGroups;
+using TiledLib.Content.Tilesets;
 using TiledLib.Layer;
 
 namespace TiledLib
@@ -68,18 +70,27 @@ namespace TiledLib
                         };
                         reader.Skip();
                         break;
+
                     case "image":
-                        ts.ImagePath = reader["source"];
-                        ts.ImageWidth = int.Parse(reader["width"]);
-                        ts.ImageHeight = int.Parse(reader["height"]);
+                        ts.Image = new TmxImage()
+                        {
+                            Source = reader["source"],
+                            Width = int.Parse(reader["width"]),
+                            Height = int.Parse(reader["height"])
+                        };
                         reader.Skip();
                         break;
+
                     case "properties":
                         reader.ReadProperties(ts.Properties);
                         break;
+
                     case "tile":
-                        reader.ReadTile(ts.TileProperties, ts.TileAnimations);
+                        var tmxTile = reader.ReadTile(ts.TileProperties, ts.TileAnimations);
+                        if (tmxTile != null)
+                            ts.Tiles[tmxTile.Id] = tmxTile;
                         break;
+
                     default:
                         reader.Skip();
                         break;
@@ -91,7 +102,10 @@ namespace TiledLib
                 throw new XmlException(reader.Name);
         }
 
-        static void ReadTile(this XmlReader reader, Dictionary<int, Dictionary<string, string>> tileProperties, Dictionary<int, Frame[]> tileAnimations)
+        static TmxTile ReadTile(
+            this XmlReader reader,
+            Dictionary<int, Dictionary<string, string>> tileProperties,
+            Dictionary<int, Frame[]> tileAnimations)
         {
             if (!reader.IsStartElement("tile"))
                 throw new XmlException(reader.Name);
@@ -99,6 +113,8 @@ namespace TiledLib
             var id = int.Parse(reader["id"]);
             if (!tileProperties.TryGetValue(id, out var properties) || properties == null)
                 properties = tileProperties[id] = new Dictionary<string, string>();
+
+            TmxObjectGroup tmxObjectGroup = null;
 
             if (reader.IsEmptyElement)
             {
@@ -113,9 +129,15 @@ namespace TiledLib
                         case "properties":
                             reader.ReadProperties(properties);
                             break;
+                        
                         case "animation":
                             tileAnimations[id] = reader.ReadAnimation();
                             break;
+
+                        case "objectgroup":
+                            tmxObjectGroup = ReadObjectGroup(reader);
+                            break;
+
                         default:
                             reader.Skip(); //TODO: Add logging.
                             break;
@@ -126,6 +148,12 @@ namespace TiledLib
                 else
                     throw new XmlException(reader.Name);
             }
+
+            return new TmxTile()
+            {
+                Id = id,
+                ObjectGroups = tmxObjectGroup
+            };
         }
 
         static Frame[] ReadAnimation(this XmlReader reader)
@@ -138,6 +166,53 @@ namespace TiledLib
                 .Elements()
                 .Select(e => new Frame { TileId = int.Parse(e.Attribute("tileid").Value), Duration_ms = int.Parse(e.Attribute("duration").Value) })
                 .ToArray();
+        }
+
+        static TmxObjectGroup ReadObjectGroup(this XmlReader reader)
+        {
+            if (!reader.IsStartElement("objectgroup"))
+                throw new XmlException(reader.Name);
+
+            var objectList = new List<Objects.BaseObject>();
+
+            var id = reader["id"];
+            // objectGroup.Name = reader["name"];
+            // objectGroup.Color = reader["color"];
+            // objectGroup.X = int.Parse(reader["x"]);
+            // objectGroup.Y = int.Parse(reader["y"]);
+            // objectGroup.Width = int.Parse(reader["width"]);
+            // objectGroup.Height = int.Parse(reader["height"]);
+            // objectGroup.Opacity = float.Parse(reader["opacity"]);
+            // objectGroup.Visible = int.Parse(reader["visible"]);
+            // objectGroup.TintColor = reader["tintcolor"];
+            // objectGroup.OffsetX = int.Parse(reader["offsetx"]);
+            // objectGroup.OffsetY = int.Parse(reader["offsety"]);
+            var drawOrder = reader["draworder"];
+
+            reader.ReadStartElement("objectgroup");
+            while (reader.IsStartElement())
+                switch (reader.Name)
+                {
+                    case "object":
+                        objectList.Add(reader.ReadObject());
+                        break;
+
+                    default:
+                        reader.Skip(); //TODO: Add logging.
+                        break;
+                }
+
+            if (reader.Name == "objectgroup")
+                reader.ReadEndElement();
+            else
+                throw new XmlException(reader.Name);
+
+            return new TmxObjectGroup()
+            {
+                Id = id,
+                DrawOrder = drawOrder,
+                Objects = objectList
+            };
         }
 
         static int[] ReadCSV(this XmlReader reader, int size)

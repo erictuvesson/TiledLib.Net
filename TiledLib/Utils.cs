@@ -9,7 +9,10 @@ namespace TiledLib
         internal static readonly System.Xml.Serialization.XmlSerializer XmlSerializer = new System.Xml.Serialization.XmlSerializer(typeof(Map));
 
         public static Map ReadJsonMap(this System.IO.TextReader reader) => (Map)JsonSerializer.Deserialize(reader, typeof(Map));
-        public static Map ReadTmxMap(this System.IO.TextReader reader) => (Map)XmlSerializer.Deserialize(reader);
+        public static Map ReadTmxMap(this System.IO.TextReader reader)
+        {
+            return (Map)XmlSerializer.Deserialize(reader);
+        }
 
         public static void WriteTmxMap(this System.IO.TextWriter writer, Map map) => XmlSerializer.Serialize(writer, map);
 

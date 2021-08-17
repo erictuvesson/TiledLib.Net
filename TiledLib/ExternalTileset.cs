@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 namespace TiledLib
 {
+    [Obsolete]
     public class ExternalTileset : ITileset
     {
         public string Source { get; set; }
